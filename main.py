@@ -15,8 +15,12 @@ for i in range(len(df)):
     languages[entry["Code"]] = entry["Language"]
 
 class WikiBotClient(discord.Client):
-    command_string = "!wiki"
-    command_len = len(command_string)
+    def __init__(self, intents, **kwargs):
+        discord.Client.__init__(self, intents = intents)
+        self.query_history = {}
+
+    def generate_entry(author, guild, channel):
+        return f"{author} {guild} {channel}"
 
     async def on_ready(self):
         print(f'Logged on as {self.user}!')
@@ -24,33 +28,45 @@ class WikiBotClient(discord.Client):
         
 
     async def on_message(self, message):
-        if message.content[:WikiBotClient.command_len] == WikiBotClient.command_string:
-            print(f'New Query from {message.author}: {message.content}')
+        content = message.content.lower()
+        if content[:5] == "!wiki":
+            print(f'New Query from {message.author}: {content}')
             author_id = message.author.id
-            contents = message.content.split(" ", 1)
+            message_components = content.split(" ", 1)
 
-            if contents[0] == WikiBotClient.command_string:
-                lang = "en"
-            elif message.content[WikiBotClient.command_len] == "-":
-                lang = contents[0][WikiBotClient.command_len + 1:]
-                if lang not in languages:
-                    await message.channel.send(f"<@{author_id}> Not a valid wikipedia language code.\n\
+            if content == "!wikinext":
+                entry = WikiBotClient.generate_entry(author_id, message.guild, message.channel.id)
+                if entry not in self.query_history:
+                    await message.channel.send(f"<@{author_id}> Sorry no previous query found try searching for it again")
+                    return
+
+                prev_url = self.query_history[entry].rsplit("=", 1)
+                num = int(prev_url[1]) + 1
+                url = f"{prev_url[0]}={num}"
+
+            else:
+                if message_components[0] == "!wiki":
+                    lang = "en"
+                elif content[5] == "-":
+                    lang = message_components[0][6:]
+                    if lang not in languages:
+                        await message.channel.send(f"<@{author_id}> Not a valid wikipedia language code.\n\
 See 'https://en.wikipedia.org/wiki/List_of_Wikipedias' \
 for a complete list of supported languages.")
             
-            url = f"https://{lang}.wikipedia.org/w/api.php?origin=*"
-            query = contents[1]
-            num = 1
-            parameters = {
-                "action": "opensearch",
-                "search": query,
-                "namespace": "0",
-                "format": "json",
-                "limit": str(num)
-            }
-            
-            for param in parameters:
-                url += f"&{param}={parameters[param]}"
+                url = f"https://{lang}.wikipedia.org/w/api.php?origin=*"
+                query = message_components[1]
+                num = 1
+                parameters = {
+                    "action": "opensearch",
+                    "search": query,
+                    "namespace": "0",
+                    "format": "json",
+                    "limit": str(num)
+                }
+                
+                for param in parameters:
+                    url += f"&{param}={parameters[param]}"
 
             try:
                 response = requests.get(url)
@@ -68,12 +84,15 @@ for a complete list of supported languages.")
                         await message.channel.send(f"<@{author_id}> No results found for '{query}'. \
 Try refining your search terms")
                     else:
-                        await message.channel.send(f"<@{author_id}> Top result: {results[1][0]}\n{results[3][0]}")
+                        message_details = WikiBotClient.generate_entry(author_id, message.guild, message.channel.id)
+                        print(message_details)
+                        self.query_history[message_details] = url
+                        await message.channel.send(f"<@{author_id}> Top result: {results[1][num - 1]}\n{results[3][num - 1]}")
             except:
                 await message.channel.send(f"<@{author_id}> An unknown error occurred. Please try again later")
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-client = WikiBotClient(intents=intents)
+client = WikiBotClient(intents)
 client.run(TOKEN)
