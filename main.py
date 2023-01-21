@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import requests
 import json
 import pandas as pd
+import urllib.parse
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -55,7 +56,7 @@ See 'https://en.wikipedia.org/wiki/List_of_Wikipedias' \
 for a complete list of supported languages.")
             
                 url = f"https://{lang}.wikipedia.org/w/api.php?origin=*"
-                query = message_components[1]
+                query = urllib.parse.quote(message_components[1])
                 num = 1
                 parameters = {
                     "action": "opensearch",
@@ -85,10 +86,10 @@ for a complete list of supported languages.")
 Try refining your search terms")
                     else:
                         message_details = WikiBotClient.generate_entry(author_id, message.guild, message.channel.id)
-                        print(message_details)
                         self.query_history[message_details] = url
                         await message.channel.send(f"<@{author_id}> Top result: {results[1][num - 1]}\n{results[3][num - 1]}")
-            except:
+            except Exception as e:
+                print(e)
                 await message.channel.send(f"<@{author_id}> An unknown error occurred. Please try again later")
 
 intents = discord.Intents.default()
