@@ -24,9 +24,7 @@ class WikiBotClient(discord.Client):
         return f"{author} {guild} {channel}"
 
     async def on_ready(self):
-        print(f'Logged on as {self.user}!')
-        self.history = {}
-        
+        print(f'Logged on as {self.user}!')    
 
     async def on_message(self, message):
         content = message.content.lower()
@@ -41,7 +39,8 @@ class WikiBotClient(discord.Client):
                     await message.channel.send(f"<@{author_id}> Sorry no previous query found try searching for it again")
                     return
 
-                prev_url = self.query_history[entry].rsplit("=", 1)
+                query = urllib.parse.unquote(self.query_history[entry][1])
+                prev_url = self.query_history[entry][0].rsplit("=", 1)
                 num = int(prev_url[1]) + 1
                 url = f"{prev_url[0]}={num}"
 
@@ -84,9 +83,12 @@ for a complete list of supported languages.")
                     if (len(results[1]) == 0):
                         await message.channel.send(f"<@{author_id}> No results found for '{query}'. \
 Try refining your search terms")
+                    elif (len(results[1]) < num):
+                         await message.channel.send(f"<@{author_id}> No more results found for '{query}'. \
+Try refining your search terms")
                     else:
                         message_details = WikiBotClient.generate_entry(author_id, message.guild, message.channel.id)
-                        self.query_history[message_details] = url
+                        self.query_history[message_details] = [url, query]
                         await message.channel.send(f"<@{author_id}> Top result: {results[1][num - 1]}\n{results[3][num - 1]}")
             except Exception as e:
                 print(e)
